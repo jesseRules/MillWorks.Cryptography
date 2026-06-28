@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Contracts plus pure, stateless primitives for MillWorks Cryptography — interfaces, format constants, exceptions, and BCL-backed helpers (encoding, constant-time comparison, HKDF field-key derivation). Zero third-party dependencies.</Description>
+    <IsPackable>true</IsPackable>
+  </PropertyGroup>
+
+</Project>

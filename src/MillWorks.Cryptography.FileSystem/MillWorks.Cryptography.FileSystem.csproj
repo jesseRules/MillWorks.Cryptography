@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>File-system / air-gapped key-provider backend for MillWorks Cryptography (disjoint signing and encryption providers), wrapping key material at rest with the AES-256-GCM AEAD cipher.</Description>
+    <IsPackable>true</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- For the AddMillWorksCryptographyFileSystem registration extension only. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.9" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MillWorks.Cryptography.Abstractions\MillWorks.Cryptography.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>

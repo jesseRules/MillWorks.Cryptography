@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Implementation of the MillWorks Cryptography primitives (AES-256-GCM AEAD, SHA-2/HMAC hashing, secure random, RFC 8785 canonicalization). Depends on the BCL only.</Description>
+    <IsPackable>true</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- For the AddMillWorksCryptography registration extension only. Not a crypto dependency. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.9" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MillWorks.Cryptography.Abstractions\MillWorks.Cryptography.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>
