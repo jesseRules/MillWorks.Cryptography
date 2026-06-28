@@ -21,6 +21,13 @@ portable across both backends. A higher-security cloud option is to use Azure Ke
 (`KeyClient` + `CryptographyClient`) so the RSA private key is generated in the vault and never leaves it
 (signing happens server-side). Deferred deliberately; add as a Key-Vault-only option once needed.
 
+## Net-new package (planned, not demand-gated)
+
+**`MillWorks.Cryptography.DataProtection`** — a factory consolidating the ~9 thin ASP.NET Data Protection
+credential wrappers across the platform into one, with tenant-segmented purpose strings. Wraps, never
+reimplements, the framework. The package is small; the bulk is a consumer-migration sweep.
+**Plan:** `docs/plans/Cryptography-DataProtection-Subplan.md`.
+
 ## Features (demand-gated)
 
 | Item | Why | Recommendation |
@@ -28,7 +35,7 @@ portable across both backends. A higher-security cloud option is to use Azure Ke
 | **Streaming / chunked AEAD** | One-shot AEAD holds the whole plaintext in memory and releases none until the tag verifies — unsuitable for large blobs/files. | Add a STREAM-style chunked construction (à la Tink Streaming AEAD / age) **if** large-payload encryption enters scope. Until then, the one-shot limit is documented in `SECURITY.md`. |
 | **Committing AEAD** | AES-GCM is not key-committing (partitioning-oracle risk for password-derived / multi-key use). | Reserve frame `version = 0x02` for a committing variant (e.g. AEAD + commitment tag). Build when password-derived or multi-recipient keys appear. |
 | **AAD context-binding helper** | Best practice is to fold key id / tenant / field / record id into AAD to prevent confused-deputy ciphertext swaps. Convention is documented; a helper would make it the easy default. | Add an `AeadContext` helper (length-prefixed binding of `KeyScope`/`KeyDescriptor`/field) once consumer wiring starts. |
-| **Project Wycheproof vectors** | KATs (NIST/FIPS/RFC) are covered; Wycheproof adds edge-case vectors (AEAD, HMAC, ECDSA) that catch subtler bugs — ideal for a "trust this" library. | Vendor the official Wycheproof JSON into the test project and iterate all cases for AES-GCM + HMAC (+ ECDSA in C2). |
+| **Project Wycheproof vectors** | KATs (NIST/FIPS/RFC) are covered; Wycheproof adds edge-case vectors (AEAD, HMAC, ECDSA) that catch subtler bugs — ideal for a "trust this" library. | Vendor the official Wycheproof JSON into the test project; iterate the in-parameter AES-GCM + HMAC + RSA-PSS cases. **Plan:** `docs/plans/Cryptography-Wycheproof-Subplan.md`. |
 | **Algorithm completeness** | No SHA-384, HMAC-SHA-384/512, or SHA-3; some standards (JWS HS384/HS512) want them. | Add to `IHasher` on demand — all BCL one-shots, cheap, dependency-free. |
 
 ## Explicit non-goals (decided)

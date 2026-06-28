@@ -113,6 +113,42 @@ The abstractions and the pure key helpers ship now; the concrete provider backen
   never resolves through the encryption provider, and vice-versa), versioned for rotation, with
   retired keys still resolvable to decrypt/verify older data.
 
+## Security model & limits
+
+The primitives are thin, opinionated wrappers over the .NET BCL's own implementations; the security
+posture follows from how you operate them. Read this before adopting platform-wide.
+
+**AES-GCM nonce ceiling — rotate before 2³² messages.** Each `Encrypt` draws a fresh random 96-bit
+nonce (the recommended GCM practice). Per **NIST SP 800-38D**, a single key must not exceed **2³²
+encryptions** under random nonces before nonce-collision probability becomes non-negligible — and a
+GCM nonce collision is catastrophic (reuse leaks the authentication key and enables forgery). Size
+your C1 key-rotation cadence to stay well under that. The `version` byte exists so the frame can
+later adopt a nonce-misuse-resistant or committing suite without breaking older readers.
+
+**Bind context into the associated data.** AAD is authenticated but not stored in the frame. Pass the
+binding context — key id, tenant, field name, record id — as AAD so a ciphertext can't be replayed
+into a different context (confused-deputy / ciphertext-swap). The cipher enables this; applying the
+convention is the caller's job (a C1 helper will fold `KeyDescriptor` / `KeyScope` in automatically).
+
+**Explicit non-goals — don't reach for these here:**
+
+- **Key commitment.** AES-GCM is not key-committing: a frame can verify under more than one key.
+  Irrelevant for single-key field encryption, but it matters for password-derived or multi-recipient
+  keys (partitioning-oracle attacks). Out of scope until a committing frame variant lands.
+- **Streaming / large objects.** Encryption is one-shot: the whole plaintext is held in memory and no
+  plaintext is released until the tag verifies. There is no chunked streaming AEAD. Encrypt large
+  objects in your own chunked framing rather than as one multi-gigabyte frame.
+- **Password hashing.** No PBKDF2 / Argon2 / bcrypt. `FieldKeyDerivation` is HKDF — key derivation
+  from high-entropy keys, not password stretching. Credential hashing belongs to Identity.
+
+**Best-effort secret erasure.** `KeyMaterial.Dispose` zeroes its buffer, but the managed GC may copy
+or relocate the array beforehand, so zeroization is best-effort — not a guarantee against memory
+disclosure. The library is not side-channel hardened beyond `ConstantTime` comparison.
+
+**FIPS posture.** Every algorithm here — AES-256-GCM, SHA-256/512, HMAC-SHA-256, HKDF-SHA256 — is
+FIPS-140 approved, and only the BCL implementations are called, so FIPS validation inherits from the
+host platform (Windows CNG / Linux OpenSSL) with no additional surface to certify.
+
 ## Comparison & prior art
 
 This is **not** a from-scratch crypto library and isn't trying to compete with one — it's an
