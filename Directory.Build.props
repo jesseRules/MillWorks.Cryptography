@@ -1,0 +1,54 @@
+<Project>
+    <PropertyGroup>
+        <!-- Version - Change this ONE place to update all projects -->
+        <Version>0.1.0</Version>
+        <AssemblyVersion>0.1.0.0</AssemblyVersion>
+        <FileVersion>0.1.0.0</FileVersion>
+
+        <!-- Package Metadata -->
+        <Authors>Jesse Carlberg</Authors>
+        <Company>Jesse Carlberg Production LLC</Company>
+        <Product>MillWorks Cryptography</Product>
+        <Description>Shared, key-agnostic cryptographic primitives (AES-256-GCM AEAD, SHA-2/HMAC hashing, secure random, RFC 8785 JSON canonicalization) for the MillWorks platform.</Description>
+        <Copyright>Copyright © 2025-2026 MillWorks</Copyright>
+
+        <!-- Package Settings -->
+        <PackageProjectUrl>https://github.com/jesserules/millworks.cryptography</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/jesserules/millworks.cryptography</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+        <PackageTags>cryptography;aes-gcm;aead;hashing;hmac;sha256;rfc8785;canonicalization;security</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <PackageReleaseNotes>v0.1.0: C0 foundation plus the C1 key-management contract. C0 ships the AES-256-GCM AEAD cipher over the canonical [version:1][nonce:12][tag:16][ciphertext] frame, SHA-2/HMAC hashing, secure random, encoding + constant-time helpers, and the RFC 8785 JSON canonicalizer (published JCS vectors + golden hash). The canonicalizer rejects plain integers beyond the IEEE-754 safe range (2^53) and duplicate object keys rather than emitting silently-rounded or nondeterministic bytes. C1 adds the tenant-capable key contract — ISigningKeyProvider/IEncryptionKeyProvider (disjoint), KeyScope/KeyDescriptor/KeyMaterial/KeyProviderException — and the HKDF-SHA256 FieldKeyDerivation primitive. Key-provider backends (file-system, Key Vault) and signing/JWKS (C2) are not in this release.</PackageReleaseNotes>
+
+        <!-- Symbols & Source Link -->
+        <IncludeSymbols>true</IncludeSymbols>
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+
+        <!-- Build Settings -->
+        <TargetFramework>net10.0</TargetFramework>
+        <LangVersion>latest</LangVersion>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <NoWarn>$(NoWarn);CS1591</NoWarn>
+        <!-- Security library: keep the build at zero warnings by making any warning fail the build. -->
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+
+        <!-- Ensure project references become package dependencies when packing -->
+        <IncludeReferencedProjects>true</IncludeReferencedProjects>
+
+        <!-- Deterministic builds for CI -->
+        <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+    </PropertyGroup>
+
+    <ItemGroup Condition="'$(CI)' == 'true'">
+        <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
+    </ItemGroup>
+
+    <!-- Embed the repo README as the package readme (packable projects only). -->
+    <ItemGroup Condition="'$(IsPackable)' == 'true' And Exists('$(MSBuildThisFileDirectory)README.md')">
+        <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="\" />
+    </ItemGroup>
+</Project>
