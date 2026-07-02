@@ -223,5 +223,10 @@ internal sealed class FileKeyStore : IDisposable
         }
 
         _cache.Clear();
+
+        // The store owns its master-key copy for its lifetime; zero it too so no wrapping key is
+        // left resident until GC. (The Base64 form on the options object is an immutable string and
+        // cannot be zeroed here; keep it out of long-lived configuration where possible.)
+        CryptographicOperations.ZeroMemory(_masterKey);
     }
 }

@@ -27,7 +27,8 @@ public sealed class AzureKeyVaultSigningKeyProvider : ISigningKeyProvider, IDisp
         _algorithm = SigningKeyFactory.AlgorithmName(signingAlgorithm);
         _store = new KeyVaultSecretStore(
             client, "sig", secureRandom, timeProvider, cacheTtl,
-            () => SigningKeyFactory.GenerateKeyMaterial(signingAlgorithm, secureRandom, rsaKeySize));
+            () => SigningKeyFactory.GenerateKeyMaterial(signingAlgorithm, secureRandom, rsaKeySize),
+            KeyVaultKeyValidation.ForSigningAlgorithm(signingAlgorithm));
     }
 
     /// <inheritdoc />

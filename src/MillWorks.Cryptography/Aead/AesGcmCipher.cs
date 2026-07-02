@@ -8,9 +8,20 @@ namespace MillWorks.Cryptography.Aead;
 /// <see cref="AeadFormat"/> frame.
 /// </summary>
 /// <remarks>
+/// <para>
 /// Stateless and thread-safe: a fresh <see cref="AesGcm"/> instance is created per call, since
 /// <see cref="AesGcm"/> is not documented as thread-safe. The frame is written into a single
 /// allocation: <c>[version:1][nonce:12][tag:16][ciphertext:N]</c>.
+/// </para>
+/// <para>
+/// Each <see cref="Encrypt"/> draws a fresh 96-bit nonce from the CSPRNG. This follows the random-nonce
+/// construction of NIST SP 800-38D, which bounds a single key to about 2^32 encryptions before the
+/// birthday probability of a nonce collision (and the AES-GCM authentication break that follows one)
+/// exceeds ~2^-32. For key wrapping — a handful of operations per key — this ceiling is never
+/// approached. If a single key is ever used to encrypt at that scale, rotate it well before 2^32
+/// invocations (or switch that path to a deterministic/counter nonce); the frame carries no per-key
+/// operation counter to enforce this automatically.
+/// </para>
 /// </remarks>
 public sealed class AesGcmCipher : IAeadCipher
 {

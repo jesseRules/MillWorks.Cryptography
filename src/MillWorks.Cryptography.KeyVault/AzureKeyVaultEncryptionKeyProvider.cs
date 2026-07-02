@@ -18,7 +18,8 @@ public sealed class AzureKeyVaultEncryptionKeyProvider : IEncryptionKeyProvider,
         SecretClient client, ISecureRandom secureRandom, TimeProvider timeProvider, TimeSpan cacheTtl)
     {
         _store = new KeyVaultSecretStore(
-            client, "enc", secureRandom, timeProvider, cacheTtl, () => secureRandom.GetBytes(32));
+            client, "enc", secureRandom, timeProvider, cacheTtl, () => secureRandom.GetBytes(32),
+            KeyVaultKeyValidation.ValidateEncryptionMasterKey);
     }
 
     /// <inheritdoc />

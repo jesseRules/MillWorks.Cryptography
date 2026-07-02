@@ -25,6 +25,7 @@ internal sealed class KeyVaultSecretStore : IDisposable
     private readonly TimeProvider _timeProvider;
     private readonly TimeSpan _cacheTtl;
     private readonly Func<byte[]> _generateKey;
+    private readonly Func<byte[], string?> _validateKey;
 
     private readonly ConcurrentDictionary<(KeyScope Scope, string Version), CacheEntry<byte[]>> _keyCache = new();
     private readonly ConcurrentDictionary<KeyScope, CacheEntry<string>> _currentCache = new();
@@ -33,13 +34,14 @@ internal sealed class KeyVaultSecretStore : IDisposable
 
     public KeyVaultSecretStore(
         SecretClient client, string usage, ISecureRandom secureRandom, TimeProvider timeProvider, TimeSpan cacheTtl,
-        Func<byte[]> generateKey)
+        Func<byte[]> generateKey, Func<byte[], string?> validateKey)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentException.ThrowIfNullOrEmpty(usage);
         ArgumentNullException.ThrowIfNull(secureRandom);
         ArgumentNullException.ThrowIfNull(timeProvider);
         ArgumentNullException.ThrowIfNull(generateKey);
+        ArgumentNullException.ThrowIfNull(validateKey);
 
         _client = client;
         _usage = usage;
@@ -47,6 +49,7 @@ internal sealed class KeyVaultSecretStore : IDisposable
         _timeProvider = timeProvider;
         _cacheTtl = cacheTtl > TimeSpan.Zero ? cacheTtl : TimeSpan.FromHours(1);
         _generateKey = generateKey;
+        _validateKey = validateKey;
     }
 
     public async Task<string> GetCurrentVersionAsync(KeyScope scope, CancellationToken cancellationToken) =>
@@ -155,6 +158,17 @@ internal sealed class KeyVaultSecretStore : IDisposable
         catch (FormatException ex)
         {
             throw new KeyProviderException($"{_usage} key version '{version}' is not valid Base64.", ex);
+        }
+
+        // Fail closed on a corrupt or mis-provisioned secret rather than deriving/signing with arbitrary
+        // bytes. Zero the rejected material before throwing so it does not linger until GC.
+        var shapeError = _validateKey(key);
+        if (shapeError is not null)
+        {
+            CryptographicOperations.ZeroMemory(key);
+            throw new KeyProviderException(
+                $"{_usage} key version '{version}' has an unexpected shape ({shapeError}); "
+                + "the Key Vault secret may be corrupt or mis-provisioned.");
         }
 
         _keyCache[(scope, version)] = new CacheEntry<byte[]>(key, _timeProvider.GetUtcNow());

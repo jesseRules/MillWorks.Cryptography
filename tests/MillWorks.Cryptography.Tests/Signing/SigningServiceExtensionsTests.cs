@@ -48,4 +48,47 @@ public sealed class SigningServiceExtensionsTests
             }
         }
     }
+
+    [Test]
+    public async Task Registers_ecdsa_signing_verification_and_jwks_end_to_end()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "mwcrypto-sign-di-ec-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            using var serviceProvider = new ServiceCollection()
+                .AddMillWorksCryptography()
+                .AddMillWorksCryptographyFileSystem(options =>
+                {
+                    options.KeyStorePath = root;
+                    options.MasterKeyBase64 = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+                    options.AllowAutoKeyGeneration = true;
+                    options.SigningAlgorithm = SignatureAlgorithm.EcdsaP256Sha256;
+                })
+                .AddMillWorksCryptographySigning(SignatureAlgorithm.EcdsaP256Sha256)
+                .BuildServiceProvider();
+
+            var signer = serviceProvider.GetRequiredService<ISigner>();
+            var verifier = serviceProvider.GetRequiredService<IVerifier>();
+            var jwksExporter = serviceProvider.GetRequiredService<JwksExporter>();
+
+            signer.Should().BeOfType<EcdsaSha256Signer>();
+
+            var data = "wired"u8.ToArray();
+            var envelope = await signer.SignAsync(data, KeyScope.Global);
+            (await verifier.VerifyAsync(data, envelope, KeyScope.Global)).Should().BeTrue();
+
+            var document = await jwksExporter.ExportAsync(KeyScope.Global);
+            var jwk = document.Keys.Should().ContainSingle().Which;
+            jwk.Kid.Should().Be(envelope.KeyId);
+            jwk.Kty.Should().Be("EC");
+            jwk.Alg.Should().Be("ES256");
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
 }

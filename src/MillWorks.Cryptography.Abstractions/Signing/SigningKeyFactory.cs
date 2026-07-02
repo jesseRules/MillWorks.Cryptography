@@ -18,12 +18,13 @@ public static class SigningKeyFactory
     {
         SignatureAlgorithm.HmacSha256 => "HMAC-SHA256",
         SignatureAlgorithm.RsaPssSha256 => "RSA-PSS-SHA256",
+        SignatureAlgorithm.EcdsaP256Sha256 => "ECDSA-P256-SHA256",
         _ => throw new NotSupportedException($"Signing key generation is not supported for '{algorithm}'."),
     };
 
     /// <summary>
-    /// Generates fresh signing key material: a 32-byte key for HMAC, or a PKCS#8-encoded private key for
-    /// RSA-PSS.
+    /// Generates fresh signing key material: a 32-byte key for HMAC, a PKCS#8-encoded private key for
+    /// RSA-PSS, or a PKCS#8-encoded NIST P-256 private key for ECDSA (ES256).
     /// </summary>
     public static byte[] GenerateKeyMaterial(SignatureAlgorithm algorithm, ISecureRandom secureRandom, int rsaKeySize)
     {
@@ -38,6 +39,12 @@ public static class SigningKeyFactory
         {
             using var rsa = RSA.Create(rsaKeySize);
             return rsa.ExportPkcs8PrivateKey();
+        }
+
+        if (algorithm == SignatureAlgorithm.EcdsaP256Sha256)
+        {
+            using var ecdsa = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+            return ecdsa.ExportPkcs8PrivateKey();
         }
 
         throw new NotSupportedException($"Signing key generation is not supported for '{algorithm}'.");

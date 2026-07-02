@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using MillWorks.Cryptography.Aead;
 using MillWorks.Cryptography.FileSystem;
@@ -24,7 +25,11 @@ public static class FileSystemServiceExtensions
 
         var options = new FileSystemKeyProviderOptions();
         configure(options);
-        _ = options.DecodeMasterKey(); // fail fast at registration on invalid configuration
+
+        // Fail fast at registration on invalid configuration. DecodeMasterKey returns a fresh copy of
+        // the key material; zero this throwaway probe so it does not linger in memory until GC.
+        var masterKeyProbe = options.DecodeMasterKey();
+        CryptographicOperations.ZeroMemory(masterKeyProbe);
 
         services.TryAddSingleton<IEncryptionKeyProvider>(serviceProvider => new FileEncryptionKeyProvider(
             serviceProvider.GetRequiredService<IAeadCipher>(),

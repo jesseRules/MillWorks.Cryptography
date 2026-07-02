@@ -4,11 +4,12 @@ namespace MillWorks.Cryptography.Signing;
 
 /// <summary>
 /// A JSON Web Key (RFC 7517) carrying a <b>public</b> signing key only. RSA keys populate
-/// <see cref="N"/>/<see cref="E"/>; no private parameters are ever represented by this type.
+/// <see cref="N"/>/<see cref="E"/>; EC keys populate <see cref="Crv"/>/<see cref="X"/>/<see cref="Y"/>;
+/// no private parameters are ever represented by this type.
 /// </summary>
 public sealed class Jwk
 {
-    /// <summary>Key type, e.g. <c>RSA</c>.</summary>
+    /// <summary>Key type, e.g. <c>RSA</c> or <c>EC</c>.</summary>
     [JsonPropertyName("kty")]
     public string Kty { get; init; } = string.Empty;
 
@@ -31,4 +32,16 @@ public sealed class Jwk
     /// <summary>RSA public exponent, base64url (public).</summary>
     [JsonPropertyName("e")]
     public string? E { get; init; }
+
+    /// <summary>EC curve name, e.g. <c>P-256</c>.</summary>
+    [JsonPropertyName("crv")]
+    public string? Crv { get; init; }
+
+    /// <summary>EC public key x-coordinate, base64url (public).</summary>
+    [JsonPropertyName("x")]
+    public string? X { get; init; }
+
+    /// <summary>EC public key y-coordinate, base64url (public).</summary>
+    [JsonPropertyName("y")]
+    public string? Y { get; init; }
 }

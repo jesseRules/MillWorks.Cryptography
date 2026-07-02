@@ -29,9 +29,54 @@ public sealed class Rfc8785JsonCanonicalizer : IJsonCanonicalizer
     /// <inheritdoc />
     public byte[] CanonicalizeToUtf8(JsonNode? node)
     {
+        // Constructed strings can hold unpaired (lone) UTF-16 surrogates. SerializeToDocument would
+        // silently replace each with U+FFFD, collapsing distinct invalid inputs to identical bytes —
+        // a collision hazard for a value about to be signed/hashed. Reject them before that happens;
+        // by the time WriteString runs the surrogate is already gone. Valid pairs are left intact.
+        ValidateNoLoneSurrogates(node);
+
         // SerializeToDocument turns a null node into JSON null and preserves numeric values verbatim.
         using var document = JsonSerializer.SerializeToDocument(node);
         return CanonicalizeToUtf8(document.RootElement);
+    }
+
+    // Stack-safety backstop for the pre-serialization walk below. This runs before SerializeToDocument
+    // (which enforces its own max depth of 64), so without a bound an adversarial deeply-nested node
+    // would StackOverflow here — uncatchable, crashing the process — before the serializer could reject
+    // it. Set generously above any real document so it never pre-empts the serializer's depth policy.
+    private const int MaxValidationDepth = 1000;
+
+    private static void ValidateNoLoneSurrogates(JsonNode? node) => ValidateNoLoneSurrogates(node, depth: 0);
+
+    private static void ValidateNoLoneSurrogates(JsonNode? node, int depth)
+    {
+        if (depth > MaxValidationDepth)
+        {
+            throw new CryptographyException(
+                $"Cannot canonicalize a JSON value nested deeper than {MaxValidationDepth} levels.");
+        }
+
+        switch (node)
+        {
+            case JsonObject obj:
+                foreach (var (name, value) in obj)
+                {
+                    ThrowIfLoneSurrogate(name);
+                    ValidateNoLoneSurrogates(value, depth + 1);
+                }
+
+                break;
+            case JsonArray array:
+                foreach (var item in array)
+                {
+                    ValidateNoLoneSurrogates(item, depth + 1);
+                }
+
+                break;
+            case JsonValue value when value.TryGetValue<string>(out var text):
+                ThrowIfLoneSurrogate(text);
+                break;
+        }
     }
 
     private static void WriteValue(StringBuilder builder, JsonElement element)
@@ -121,6 +166,12 @@ public sealed class Rfc8785JsonCanonicalizer : IJsonCanonicalizer
     /// <summary>RFC 8785 §3.2.2.2 string serialization: minimal escaping, lowercase <c>\u00xx</c>.</summary>
     private static void WriteString(StringBuilder builder, string value)
     {
+        // A lone surrogate reaching here would be turned into U+FFFD by the final UTF-8 encoding,
+        // silently colliding distinct inputs. Strings arriving via a parsed/serialized JsonElement
+        // cannot contain one, but guard the emit boundary regardless so the invariant holds by
+        // construction. Valid surrogate pairs pass and are appended (and UTF-8 encoded) verbatim.
+        ThrowIfLoneSurrogate(value);
+
         builder.Append('"');
         foreach (var c in value)
         {
@@ -165,6 +216,35 @@ public sealed class Rfc8785JsonCanonicalizer : IJsonCanonicalizer
         }
 
         builder.Append('"');
+    }
+
+    /// <summary>
+    /// Throws if <paramref name="value"/> contains an unpaired UTF-16 surrogate (a high surrogate not
+    /// followed by a low surrogate, or a low surrogate not preceded by a high one). Well-formed pairs
+    /// pass. This keeps canonicalization injective: no two distinct strings collapse via U+FFFD.
+    /// </summary>
+    private static void ThrowIfLoneSurrogate(string value)
+    {
+        for (var i = 0; i < value.Length; i++)
+        {
+            var c = value[i];
+            if (char.IsHighSurrogate(c))
+            {
+                if (i + 1 < value.Length && char.IsLowSurrogate(value[i + 1]))
+                {
+                    i++; // consume the paired low surrogate
+                    continue;
+                }
+            }
+            else if (!char.IsLowSurrogate(c))
+            {
+                continue;
+            }
+
+            throw new CryptographyException(
+                "Cannot canonicalize a string containing an unpaired UTF-16 surrogate: it would be "
+                + "silently replaced with U+FFFD, colliding distinct inputs before signing.");
+        }
     }
 
     // Integers up to 2^53 are exactly representable as IEEE-754 doubles; beyond that, the double
@@ -266,12 +346,12 @@ public sealed class Rfc8785JsonCanonicalizer : IJsonCanonicalizer
             return digits + new string('0', n - k);
         }
 
-        if (n > 0 && n <= 21)
-        {
+        if (n is > 0 and <= 21)
+        {   
             return digits[..n] + "." + digits[n..];
         }
 
-        if (n > -6 && n <= 0)
+        if (n is > -6 and <= 0)
         {
             return "0." + new string('0', -n) + digits;
         }

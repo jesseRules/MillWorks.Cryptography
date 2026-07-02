@@ -12,6 +12,9 @@ public enum SignatureAlgorithm
     /// <summary>RSASSA-PSS over SHA-256 (asymmetric).</summary>
     RsaPssSha256,
 
+    /// <summary>ECDSA over the NIST P-256 curve with SHA-256 — JOSE <c>ES256</c> (asymmetric).</summary>
+    EcdsaP256Sha256,
+
     /// <summary>
     /// Ed25519 (EdDSA). Declared for completeness but not built in the core — the .NET BCL does not
     /// expose Ed25519, so it ships as an optional package once a backend is ratified

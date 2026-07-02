@@ -37,6 +37,13 @@ public static class SigningServiceExtensions
                 services.TryAddSingleton<IVerifier>(serviceProvider => serviceProvider.GetRequiredService<RsaPssSigner>());
                 break;
 
+            case SignatureAlgorithm.EcdsaP256Sha256:
+                services.TryAddSingleton(serviceProvider => new EcdsaSha256Signer(
+                    serviceProvider.GetRequiredService<ISigningKeyProvider>()));
+                services.TryAddSingleton<ISigner>(serviceProvider => serviceProvider.GetRequiredService<EcdsaSha256Signer>());
+                services.TryAddSingleton<IVerifier>(serviceProvider => serviceProvider.GetRequiredService<EcdsaSha256Signer>());
+                break;
+
             default:
                 throw new NotSupportedException($"Signing is not supported for '{algorithm}'.");
         }
