@@ -37,15 +37,14 @@ public sealed class AzureKeyVaultSigningKeyProvider : ISigningKeyProvider, IDisp
     {
         var version = await _store.GetCurrentVersionAsync(scope, cancellationToken).ConfigureAwait(false);
         var key = await _store.ReadVersionKeyAsync(version, scope, cancellationToken).ConfigureAwait(false);
-        return (Describe(version, KeyStatus.Active), KeyMaterial.CopyOf(key));
+        return (Describe(version, KeyStatus.Active), key);
     }
 
     /// <inheritdoc />
     public async Task<KeyMaterial?> GetByIdAsync(string keyId, KeyScope scope, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrEmpty(keyId);
-        var key = await _store.ReadVersionKeyOrNullAsync(keyId, scope, cancellationToken).ConfigureAwait(false);
-        return key is null ? null : KeyMaterial.CopyOf(key);
+        return await _store.ReadVersionKeyOrNullAsync(keyId, scope, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />

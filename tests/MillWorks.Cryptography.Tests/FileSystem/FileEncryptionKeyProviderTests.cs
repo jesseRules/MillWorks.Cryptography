@@ -26,6 +26,24 @@ public sealed class FileEncryptionKeyProviderTests : FileSystemTestBase
     }
 
     [Test]
+    public async Task Concurrent_first_use_creates_only_one_initial_version()
+    {
+        var options = Options(autoGen: true);
+        using var firstProvider = Encryption(options);
+        using var secondProvider = Encryption(options);
+
+        var versions = await Task.WhenAll(
+            Enumerable.Range(0, 16).Select(index =>
+                (index & 1) == 0
+                    ? firstProvider.GetCurrentVersionAsync(KeyScope.Global)
+                    : secondProvider.GetCurrentVersionAsync(KeyScope.Global)));
+
+        versions.Should().OnlyContain(version => version == versions[0]);
+        Directory.GetFiles(Root, "key-*.encrypted", SearchOption.AllDirectories).Should().HaveCount(1);
+        Directory.GetFiles(Root, "*.tmp", SearchOption.AllDirectories).Should().BeEmpty();
+    }
+
+    [Test]
     public async Task Rotate_then_derive_returns_a_256bit_field_key()
     {
         using var provider = Encryption(Options());

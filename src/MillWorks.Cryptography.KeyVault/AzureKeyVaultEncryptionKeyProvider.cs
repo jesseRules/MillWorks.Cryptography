@@ -35,8 +35,8 @@ public sealed class AzureKeyVaultEncryptionKeyProvider : IEncryptionKeyProvider,
         string fieldName, string keyVersion, KeyScope scope, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrEmpty(fieldName);
-        var master = await _store.ReadVersionKeyAsync(keyVersion, scope, cancellationToken).ConfigureAwait(false);
-        return new KeyMaterial(FieldKeyDerivation.DeriveFieldKey(master, fieldName, keyVersion));
+        using var master = await _store.ReadVersionKeyAsync(keyVersion, scope, cancellationToken).ConfigureAwait(false);
+        return new KeyMaterial(FieldKeyDerivation.DeriveFieldKey(master.Span, fieldName, keyVersion));
     }
 
     /// <inheritdoc />

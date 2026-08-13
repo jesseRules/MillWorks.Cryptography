@@ -14,8 +14,8 @@ namespace MillWorks.Cryptography.KeyVault.Internal;
 /// </summary>
 /// <remarks>
 /// Reads are cached with a TTL and coalesced with an in-flight de-duplicator to avoid redundant Key
-/// Vault calls. <see cref="ReadVersionKeyAsync"/> returns the store's own cached buffer (read-only;
-/// the store owns and zeroes it on <see cref="Dispose"/>) — callers copy or derive from it.
+/// Vault calls. <see cref="ReadVersionKeyAsync"/> returns caller-owned key material; the store never
+/// exposes its cached buffer and zeroes expired or disposed cache entries.
 /// </remarks>
 internal sealed class KeyVaultSecretStore : IDisposable
 {
@@ -28,6 +28,7 @@ internal sealed class KeyVaultSecretStore : IDisposable
     private readonly Func<byte[], string?> _validateKey;
 
     private readonly ConcurrentDictionary<(KeyScope Scope, string Version), CacheEntry<byte[]>> _keyCache = new();
+    private readonly object _keyCacheGate = new();
     private readonly ConcurrentDictionary<KeyScope, CacheEntry<string>> _currentCache = new();
     private readonly ConcurrentDictionary<(KeyScope Scope, string Version), Lazy<Task<byte[]?>>> _keyInflight = new();
     private readonly ConcurrentDictionary<KeyScope, Lazy<Task<string?>>> _currentInflight = new();
@@ -63,25 +64,32 @@ internal sealed class KeyVaultSecretStore : IDisposable
             return cached;
         }
 
-        return await DedupAsync(_currentInflight, scope, () => LoadCurrentVersionAsync(scope, cancellationToken))
+        return await DedupAsync(
+                _currentInflight, scope, () => LoadCurrentVersionAsync(scope, CancellationToken.None), cancellationToken)
             .ConfigureAwait(false);
     }
 
-    public async Task<byte[]> ReadVersionKeyAsync(string version, KeyScope scope, CancellationToken cancellationToken) =>
+    public async Task<KeyMaterial> ReadVersionKeyAsync(
+        string version, KeyScope scope, CancellationToken cancellationToken) =>
         await ReadVersionKeyOrNullAsync(version, scope, cancellationToken).ConfigureAwait(false)
         ?? throw new KeyProviderException($"{_usage} key version '{version}' was not found.");
 
-    public async Task<byte[]?> ReadVersionKeyOrNullAsync(string version, KeyScope scope, CancellationToken cancellationToken)
+    public async Task<KeyMaterial?> ReadVersionKeyOrNullAsync(
+        string version, KeyScope scope, CancellationToken cancellationToken)
     {
         ValidateVersion(version);
 
-        if (TryFromCache(_keyCache, (scope, version), out var cached))
+        if (TryKeyFromCache((scope, version), out var cached))
         {
             return cached;
         }
 
-        return await DedupAsync(_keyInflight, (scope, version), () => LoadKeyAsync(version, scope, cancellationToken))
+        var loaded = await DedupAsync(
+                _keyInflight, (scope, version),
+                () => LoadKeyAsync(version, scope, CancellationToken.None),
+                cancellationToken)
             .ConfigureAwait(false);
+        return loaded is null ? null : KeyMaterial.CopyOf(loaded);
     }
 
     public async Task<string> RotateAsync(KeyScope scope, CancellationToken cancellationToken)
@@ -171,7 +179,7 @@ internal sealed class KeyVaultSecretStore : IDisposable
                 + "the Key Vault secret may be corrupt or mis-provisioned.");
         }
 
-        _keyCache[(scope, version)] = new CacheEntry<byte[]>(key, _timeProvider.GetUtcNow());
+        ReplaceCachedKey((scope, version), key);
         return key;
     }
 
@@ -221,19 +229,76 @@ internal sealed class KeyVaultSecretStore : IDisposable
         return false;
     }
 
+    private bool TryKeyFromCache((KeyScope Scope, string Version) cacheKey, out KeyMaterial? key)
+    {
+        lock (_keyCacheGate)
+        {
+            if (_keyCache.TryGetValue(cacheKey, out var entry)
+                && _timeProvider.GetUtcNow() - entry.CachedAt < _cacheTtl)
+            {
+                key = KeyMaterial.CopyOf(entry.Value);
+                return true;
+            }
+        }
+
+        key = null;
+        return false;
+    }
+
+    private void ReplaceCachedKey((KeyScope Scope, string Version) cacheKey, byte[] key)
+    {
+        lock (_keyCacheGate)
+        {
+            if (_keyCache.TryGetValue(cacheKey, out var expired)
+                && !ReferenceEquals(expired.Value, key))
+            {
+                CryptographicOperations.ZeroMemory(expired.Value);
+            }
+
+            _keyCache[cacheKey] = new CacheEntry<byte[]>(key, _timeProvider.GetUtcNow());
+        }
+    }
+
     private static async Task<T> DedupAsync<TKey, T>(
-        ConcurrentDictionary<TKey, Lazy<Task<T>>> inflight, TKey key, Func<Task<T>> load)
+        ConcurrentDictionary<TKey, Lazy<Task<T>>> inflight,
+        TKey key,
+        Func<Task<T>> load,
+        CancellationToken cancellationToken)
         where TKey : notnull
     {
         var lazy = inflight.GetOrAdd(
             key, _ => new Lazy<Task<T>>(load, LazyThreadSafetyMode.ExecutionAndPublication));
+        var sharedTask = lazy.Value;
+
+        // Removal follows the shared operation, not an individual caller's wait. Otherwise a caller
+        // that cancels early can remove an operation that is still running and permit a duplicate load.
+        _ = RemoveWhenCompleteAsync(inflight, key, lazy, sharedTask);
+
+        // The Azure request deliberately has an independent lifetime. Cancellation stops only this
+        // caller's wait; it cannot cancel or poison the result for other callers sharing the request.
+        return await sharedTask.WaitAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task RemoveWhenCompleteAsync<TKey, T>(
+        ConcurrentDictionary<TKey, Lazy<Task<T>>> inflight,
+        TKey key,
+        Lazy<Task<T>> lazy,
+        Task<T> sharedTask)
+        where TKey : notnull
+    {
         try
         {
-            return await lazy.Value.ConfigureAwait(false);
+            await sharedTask.ConfigureAwait(false);
+        }
+        catch
+        {
+            // Every outcome removes the completed operation. Awaiting here also observes a fault if
+            // all callers cancelled their waits before the Azure request itself failed.
         }
         finally
         {
-            inflight.TryRemove(key, out _);
+            ((ICollection<KeyValuePair<TKey, Lazy<Task<T>>>>)inflight)
+                .Remove(new KeyValuePair<TKey, Lazy<Task<T>>>(key, lazy));
         }
     }
 
@@ -249,12 +314,16 @@ internal sealed class KeyVaultSecretStore : IDisposable
 
     public void Dispose()
     {
-        foreach (var entry in _keyCache.Values)
+        lock (_keyCacheGate)
         {
-            CryptographicOperations.ZeroMemory(entry.Value);
+            foreach (var entry in _keyCache.Values)
+            {
+                CryptographicOperations.ZeroMemory(entry.Value);
+            }
+
+            _keyCache.Clear();
         }
 
-        _keyCache.Clear();
         _currentCache.Clear();
     }
 

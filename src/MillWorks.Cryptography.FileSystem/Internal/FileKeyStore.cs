@@ -19,6 +19,7 @@ namespace MillWorks.Cryptography.FileSystem.Internal;
 internal sealed class FileKeyStore : IDisposable
 {
     private const string CurrentVersionFile = "current-version.txt";
+    private const string RotationLockFile = ".rotation.lock";
     private const string KeyFileSearchPattern = "key-*.encrypted";
     private const string KeyFilePrefix = "key-";
 
@@ -31,6 +32,7 @@ internal sealed class FileKeyStore : IDisposable
     private readonly bool _allowAutoGenerate;
     private readonly Func<byte[]> _generateKey;
     private readonly ConcurrentDictionary<(KeyScope Scope, string Version), byte[]> _cache = new();
+    private readonly ConcurrentDictionary<KeyScope, SemaphoreSlim> _rotationLocks = new();
 
     public FileKeyStore(
         string keyStorePath,
@@ -79,7 +81,24 @@ internal sealed class FileKeyStore : IDisposable
                 $"No {_usage} key exists for the requested scope and automatic key generation is disabled.");
         }
 
-        return await RotateAsync(scope, cancellationToken).ConfigureAwait(false);
+        var rotationLock = _rotationLocks.GetOrAdd(scope, static _ => new SemaphoreSlim(1, 1));
+        await rotationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await using var fileLock = await AcquireRotationFileLockAsync(scope, cancellationToken).ConfigureAwait(false);
+
+            // Another caller may have initialized this scope while we waited.
+            if (TryGetCurrentVersion(scope, out version))
+            {
+                return version;
+            }
+
+            return await RotateCoreAsync(scope, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            rotationLock.Release();
+        }
     }
 
     /// <summary>Reads the current-version pointer without generating or throwing.</summary>
@@ -144,6 +163,21 @@ internal sealed class FileKeyStore : IDisposable
     /// <summary>Generates a fresh key version, wraps it, writes it, and points current at it.</summary>
     public async Task<string> RotateAsync(KeyScope scope, CancellationToken cancellationToken)
     {
+        var rotationLock = _rotationLocks.GetOrAdd(scope, static _ => new SemaphoreSlim(1, 1));
+        await rotationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await using var fileLock = await AcquireRotationFileLockAsync(scope, cancellationToken).ConfigureAwait(false);
+            return await RotateCoreAsync(scope, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            rotationLock.Release();
+        }
+    }
+
+    private async Task<string> RotateCoreAsync(KeyScope scope, CancellationToken cancellationToken)
+    {
         var directory = ScopeDirectory(scope);
         Directory.CreateDirectory(directory);
 
@@ -152,14 +186,72 @@ internal sealed class FileKeyStore : IDisposable
         {
             var version = AllocateVersion(scope);
             var framed = _cipher.Encrypt(_masterKey, key);
-            await File.WriteAllBytesAsync(KeyFilePath(scope, version), framed, cancellationToken).ConfigureAwait(false);
-            await File.WriteAllTextAsync(Path.Combine(directory, CurrentVersionFile), version, cancellationToken)
-                .ConfigureAwait(false);
+            await WriteAtomicAsync(
+                KeyFilePath(scope, version), framed, overwrite: false, cancellationToken).ConfigureAwait(false);
+            await WriteAtomicAsync(
+                Path.Combine(directory, CurrentVersionFile),
+                System.Text.Encoding.UTF8.GetBytes(version),
+                overwrite: true,
+                cancellationToken).ConfigureAwait(false);
             return version;
         }
         finally
         {
             CryptographicOperations.ZeroMemory(key);
+        }
+    }
+
+    private async Task<FileStream> AcquireRotationFileLockAsync(
+        KeyScope scope, CancellationToken cancellationToken)
+    {
+        var directory = ScopeDirectory(scope);
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, RotationLockFile);
+
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                // The file remains as a harmless marker; the exclusive OS handle is the lock. This
+                // coordinates independent provider instances and processes sharing the key store.
+                return new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+            }
+            catch (IOException)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(25), cancellationToken).ConfigureAwait(false);
+            }
+        }
+    }
+
+    private static async Task WriteAtomicAsync(
+        string destination, ReadOnlyMemory<byte> contents, bool overwrite, CancellationToken cancellationToken)
+    {
+        // A same-directory rename is atomic. A crash or cancellation before the rename therefore
+        // leaves the previous destination intact rather than exposing a partial key or pointer.
+        var temporary = Path.Combine(
+            Path.GetDirectoryName(destination)!, $".{Path.GetFileName(destination)}.{Guid.NewGuid():N}.tmp");
+        try
+        {
+            await using (var stream = new FileStream(
+                temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096,
+                FileOptions.Asynchronous | FileOptions.WriteThrough))
+            {
+                await stream.WriteAsync(contents, cancellationToken).ConfigureAwait(false);
+                await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+                stream.Flush(flushToDisk: true);
+            }
+
+            File.Move(temporary, destination, overwrite);
+        }
+        finally
+        {
+            // File.Move removes the source on success; on failure this removes only our uniquely
+            // named temporary file and never touches an existing committed destination.
+            if (File.Exists(temporary))
+            {
+                File.Delete(temporary);
+            }
         }
     }
 
@@ -223,6 +315,13 @@ internal sealed class FileKeyStore : IDisposable
         }
 
         _cache.Clear();
+
+        foreach (var rotationLock in _rotationLocks.Values)
+        {
+            rotationLock.Dispose();
+        }
+
+        _rotationLocks.Clear();
 
         // The store owns its master-key copy for its lifetime; zero it too so no wrapping key is
         // left resident until GC. (The Base64 form on the options object is an immutable string and
