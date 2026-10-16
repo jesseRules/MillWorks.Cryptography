@@ -4,6 +4,30 @@
 **Phase:** Track-tier net-new package (audit `PrimitivePromotionAudit.md` #4; Orchestration §6.6).
 **Created:** 2026-06-28. **Home:** `MillWorks.Cryptography/docs/plans/`.
 
+## Update (2026-07-02) — position after the opportunistic primitive wave
+The primitive-consolidation wave is **DONE** (Identity + Tokens + SqlBuilder + Git on `MillWorks.Cryptography 0.1.2`;
+ES256/ECDSA-P256 added to the family this cycle). This DataProtection factory is now the **top remaining track-tier
+consolidation item** — the last standing duplication class (the ~9 DP wrappers) after AES-GCM / constant-time / key-store
+collapsed. Currency notes that refine (not replace) the sections below:
+
+- **§6.6 is now RATIFIED** as *"global ring; segment where a real boundary exists; build the seam **tenant-CAPABLE** but
+  consumers pass **Global** until a per-tenant data-source-ownership model actually exists — don't invent tenancy."* This
+  **confirms Decision #1** (purpose segmentation) with one sharpening: the factory takes a `KeyScope` (tenant-capable), but the
+  consumer migrations pass `Global` by default. Per-tenant purpose segmentation is wired **only** where a genuine tenant
+  boundary + a scoped tenant source both exist.
+- **Wave finding — SqlBuilder DP surface is two singletons with no tenant in scope.** SqlBuilder's DP wrappers are
+  `ConnectionStringProtectionService` (purpose `"DataSourceConnectionStrings"`) and `DataProtectionKekProvider` (purpose
+  `"MillWorks.SqlBuilder.Kek"`), **both registered as singletons** with **no tenant value reachable at the `CreateProtector`
+  call site** (tenant exists only on the scoped RLS/session path, `ISqlBuilderUserSessionProvider`/`RlsContext.TenantId`). So
+  migrating them to `ICredentialProtectorFactory` is a drop-in for the *purpose/marker* consolidation, but **tenant-segmenting
+  them requires first threading a scoped tenant accessor** (or re-scoping the services) — track that as a prerequisite, and keep
+  them `Global` until the per-tenant data-source model exists. SqlBuilder's `EnvelopeCredentialCipher` inner AES-GCM was already
+  routed to `IAeadCipher` in the wave — that is the **KEK cipher, separate** from these DP purpose-string wrappers.
+- **Identity's DP wrappers are untouched and confirmed framework** (`SsoSecretProtectionService`, `LdapBindSecretProtectionService`)
+  — the Identity I0 DO-NOT-ABSORB guard test asserts they stay on ASP.NET DataProtection. They remain valid convergence targets
+  for *this* factory (wrap the wrapper; the framework provider stays).
+- Everything else below (package layout, the 7 files, tests, the migration matrix, non-goals) stands as written.
+
 ## Goal
 
 Consolidate the **~9 thin ASP.NET DataProtection wrapper services** scattered across the platform into one
