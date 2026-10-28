@@ -24,31 +24,39 @@ public static class SigningServiceExtensions
         switch (algorithm)
         {
             case SignatureAlgorithm.HmacSha256:
-                services.TryAddSingleton(serviceProvider => new HmacSha256Signer(
-                    serviceProvider.GetRequiredService<ISigningKeyProvider>(), serviceProvider.GetRequiredService<IHasher>()));
-                services.TryAddSingleton<ISigner>(serviceProvider => serviceProvider.GetRequiredService<HmacSha256Signer>());
-                services.TryAddSingleton<IVerifier>(serviceProvider => serviceProvider.GetRequiredService<HmacSha256Signer>());
+                services.TryAddSingleton(static serviceProvider => new HmacSha256Signer(
+                    serviceProvider.GetRequiredService<ISigningKeyProvider>(),
+                    serviceProvider.GetRequiredService<IHasher>()));
+                services.TryAddSingleton<ISigner>(static serviceProvider =>
+                    serviceProvider.GetRequiredService<HmacSha256Signer>());
+                services.TryAddSingleton<IVerifier>(static serviceProvider =>
+                    serviceProvider.GetRequiredService<HmacSha256Signer>());
                 break;
 
             case SignatureAlgorithm.RsaPssSha256:
-                services.TryAddSingleton(serviceProvider => new RsaPssSigner(
+                services.TryAddSingleton(static serviceProvider => new RsaPssSigner(
                     serviceProvider.GetRequiredService<ISigningKeyProvider>()));
-                services.TryAddSingleton<ISigner>(serviceProvider => serviceProvider.GetRequiredService<RsaPssSigner>());
-                services.TryAddSingleton<IVerifier>(serviceProvider => serviceProvider.GetRequiredService<RsaPssSigner>());
+                services.TryAddSingleton<ISigner>(static serviceProvider =>
+                    serviceProvider.GetRequiredService<RsaPssSigner>());
+                services.TryAddSingleton<IVerifier>(static serviceProvider =>
+                    serviceProvider.GetRequiredService<RsaPssSigner>());
                 break;
 
             case SignatureAlgorithm.EcdsaP256Sha256:
-                services.TryAddSingleton(serviceProvider => new EcdsaSha256Signer(
+                services.TryAddSingleton(static serviceProvider => new EcdsaSha256Signer(
                     serviceProvider.GetRequiredService<ISigningKeyProvider>()));
-                services.TryAddSingleton<ISigner>(serviceProvider => serviceProvider.GetRequiredService<EcdsaSha256Signer>());
-                services.TryAddSingleton<IVerifier>(serviceProvider => serviceProvider.GetRequiredService<EcdsaSha256Signer>());
+                services.TryAddSingleton<ISigner>(static serviceProvider =>
+                    serviceProvider.GetRequiredService<EcdsaSha256Signer>());
+                services.TryAddSingleton<IVerifier>(static serviceProvider =>
+                    serviceProvider.GetRequiredService<EcdsaSha256Signer>());
                 break;
 
             default:
                 throw new NotSupportedException($"Signing is not supported for '{algorithm}'.");
         }
 
-        services.TryAddSingleton(serviceProvider => new JwksExporter(serviceProvider.GetRequiredService<ISigningKeyProvider>()));
+        services.TryAddSingleton(static serviceProvider =>
+            new JwksExporter(serviceProvider.GetRequiredService<ISigningKeyProvider>()));
         return services;
     }
 }
