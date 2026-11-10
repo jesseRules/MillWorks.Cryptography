@@ -184,7 +184,7 @@ public sealed class AesGcmCipherTests
     [Test]
     public void Decrypt_with_non_256bit_key_throws()
     {
-        var act = () => RealCipher().Decrypt(new byte[16], new byte[AeadFormat.MinFrameSize]);
+        var act = static () => RealCipher().Decrypt(new byte[16], new byte[AeadFormat.MinFrameSize]);
 
         act.Should().Throw<CryptographyException>();
     }
@@ -255,7 +255,7 @@ public sealed class AesGcmCipherTests
     [Test]
     public void Constructor_rejects_null_secure_random()
     {
-        var act = () => new AesGcmCipher(null!);
+        var act = static () => new AesGcmCipher(null!);
 
         act.Should().Throw<ArgumentNullException>();
     }

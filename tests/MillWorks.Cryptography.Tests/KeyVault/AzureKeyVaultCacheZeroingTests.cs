@@ -27,13 +27,13 @@ public sealed class AzureKeyVaultCacheZeroingTests
 
         using var firstDerived = await provider.GetEncryptionKeyAsync("Email", Version, KeyScope.Global);
         var expiredBuffer = CachedKeyBuffer(provider);
-        expiredBuffer.Should().OnlyContain(value => value == 0x11);
+        expiredBuffer.Should().OnlyContain(static value => value == 0x11);
 
         time.Advance(TimeSpan.FromMinutes(2));
         using var secondDerived = await provider.GetEncryptionKeyAsync("Email", Version, KeyScope.Global);
 
-        expiredBuffer.Should().OnlyContain(value => value == 0);
-        firstDerived.Span.ToArray().Should().Contain(value => value != 0);
+        expiredBuffer.Should().OnlyContain(static value => value == 0);
+        firstDerived.Span.ToArray().Should().Contain(static value => value != 0);
         secondDerived.Span.ToArray().Should().NotEqual(firstDerived.Span.ToArray());
         client.RequestCount.Should().Be(2);
     }
@@ -77,9 +77,14 @@ public sealed class AzureKeyVaultCacheZeroingTests
         public override string ReasonPhrase => "OK";
         public override Stream? ContentStream { get; set; }
         public override string ClientRequestId { get; set; } = string.Empty;
-        public override void Dispose() { }
+
+        public override void Dispose()
+        {
+        }
+
         protected override bool ContainsHeader(string name) => false;
         protected override IEnumerable<HttpHeader> EnumerateHeaders() => [];
+
         protected override bool TryGetHeader(string name, [NotNullWhen(true)] out string? value)
         {
             value = null;

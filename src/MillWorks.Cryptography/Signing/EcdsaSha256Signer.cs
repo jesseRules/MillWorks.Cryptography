@@ -43,7 +43,8 @@ public sealed class EcdsaSha256Signer : ISigner, IVerifier
 
     /// <inheritdoc />
     public async Task<bool> VerifyAsync(
-        ReadOnlyMemory<byte> data, SignatureEnvelope signature, KeyScope scope, CancellationToken cancellationToken = default)
+        ReadOnlyMemory<byte> data, SignatureEnvelope signature, KeyScope scope,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(signature);
         if (signature.Alg != SignatureAlgorithm.EcdsaP256Sha256)
@@ -51,7 +52,8 @@ public sealed class EcdsaSha256Signer : ISigner, IVerifier
             return false;
         }
 
-        using var key = await _keyProvider.GetByIdAsync(signature.KeyId, scope, cancellationToken).ConfigureAwait(false);
+        using var key = await _keyProvider.GetByIdAsync(signature.KeyId, scope, cancellationToken)
+            .ConfigureAwait(false);
         if (key is null)
         {
             return false;
@@ -62,7 +64,8 @@ public sealed class EcdsaSha256Signer : ISigner, IVerifier
             using var ecdsa = ECDsa.Create();
             ecdsa.ImportPkcs8PrivateKey(key.Span, out _);
             return ecdsa.VerifyData(
-                data.Span, signature.Value, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
+                data.Span, signature.Value, HashAlgorithmName.SHA256,
+                DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
         }
         catch (CryptographicException)
         {

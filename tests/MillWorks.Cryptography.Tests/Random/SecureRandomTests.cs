@@ -20,7 +20,7 @@ public sealed class SecureRandomTests
     [Test]
     public void GetBytes_negative_throws()
     {
-        var act = () => new SecureRandom().GetBytes(-1);
+        var act = static () => new SecureRandom().GetBytes(-1);
 
         act.Should().Throw<ArgumentOutOfRangeException>();
     }
@@ -33,7 +33,7 @@ public sealed class SecureRandomTests
         new SecureRandom().Fill(buffer);
 
         // The probability of a 64-byte all-zero draw from a CSPRNG is negligible.
-        buffer.Should().Contain(b => b != 0);
+        buffer.Should().Contain(static b => b != 0);
     }
 
     [Test]

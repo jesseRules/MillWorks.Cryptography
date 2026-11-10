@@ -259,7 +259,8 @@ public sealed class Rfc8785JsonCanonicalizer : IJsonCanonicalizer
     private static string FormatNumber(JsonElement element)
     {
         var raw = element.GetRawText();
-        if (IsIntegerLiteral(raw) && BigInteger.Abs(BigInteger.Parse(raw, CultureInfo.InvariantCulture)) > SafeIntegerLimit)
+        if (IsIntegerLiteral(raw) &&
+            BigInteger.Abs(BigInteger.Parse(raw, CultureInfo.InvariantCulture)) > SafeIntegerLimit)
         {
             throw new CryptographyException(
                 $"Cannot canonicalize integer '{raw}': it exceeds the IEEE-754 safe-integer range (±2^53) and "
@@ -347,7 +348,7 @@ public sealed class Rfc8785JsonCanonicalizer : IJsonCanonicalizer
         }
 
         if (n is > 0 and <= 21)
-        {   
+        {
             return digits[..n] + "." + digits[n..];
         }
 

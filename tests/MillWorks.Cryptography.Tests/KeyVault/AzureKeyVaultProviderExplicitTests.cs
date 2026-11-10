@@ -35,7 +35,8 @@ public sealed class AzureKeyVaultProviderExplicitTests
     [Test]
     public async Task Encryption_rotate_then_derive_round_trips()
     {
-        using var provider = new AzureKeyVaultEncryptionKeyProvider(_client, new SecureRandom(), TimeProvider.System, CacheTtl);
+        using var provider =
+            new AzureKeyVaultEncryptionKeyProvider(_client, new SecureRandom(), TimeProvider.System, CacheTtl);
         var scope = KeyScope.ForTenant(Guid.NewGuid());
 
         await provider.RotateAsync(scope);
@@ -49,7 +50,8 @@ public sealed class AzureKeyVaultProviderExplicitTests
     [Test]
     public async Task Signing_rotate_then_get_active_and_by_id()
     {
-        using var provider = new AzureKeyVaultSigningKeyProvider(_client, new SecureRandom(), TimeProvider.System, CacheTtl);
+        using var provider =
+            new AzureKeyVaultSigningKeyProvider(_client, new SecureRandom(), TimeProvider.System, CacheTtl);
         var scope = KeyScope.ForTenant(Guid.NewGuid());
 
         var rotated = await provider.RotateAsync(scope);

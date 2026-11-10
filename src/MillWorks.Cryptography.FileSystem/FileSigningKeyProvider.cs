@@ -42,7 +42,8 @@ public sealed class FileSigningKeyProvider : ISigningKeyProvider, IDisposable
     }
 
     /// <inheritdoc />
-    public async Task<KeyMaterial?> GetByIdAsync(string keyId, KeyScope scope, CancellationToken cancellationToken = default)
+    public async Task<KeyMaterial?> GetByIdAsync(string keyId, KeyScope scope,
+        CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrEmpty(keyId);
 
@@ -57,7 +58,8 @@ public sealed class FileSigningKeyProvider : ISigningKeyProvider, IDisposable
     }
 
     /// <inheritdoc />
-    public Task<IReadOnlyList<KeyDescriptor>> ListActiveAsync(KeyScope scope, CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<KeyDescriptor>> ListActiveAsync(KeyScope scope,
+        CancellationToken cancellationToken = default)
     {
         _store.TryGetCurrentVersion(scope, out var current);
 

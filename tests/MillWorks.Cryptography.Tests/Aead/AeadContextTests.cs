@@ -31,7 +31,7 @@ public sealed class AeadContextTests
     [Test]
     public void Null_component_throws()
     {
-        var act = () => AeadContext.Build("a", null!, "c");
+        var act = static () => AeadContext.Build("a", null!, "c");
 
         act.Should().Throw<ArgumentNullException>();
     }
@@ -42,10 +42,10 @@ public sealed class AeadContextTests
         var tenant = KeyScope.ForTenant(Guid.NewGuid());
 
         var baseline = AeadContext.ForKey(KeyScope.Global, "v1", "Email");
-        baseline.Should().NotEqual(AeadContext.ForKey(tenant, "v1", "Email"));     // scope
+        baseline.Should().NotEqual(AeadContext.ForKey(tenant, "v1", "Email")); // scope
         baseline.Should().NotEqual(AeadContext.ForKey(KeyScope.Global, "v2", "Email")); // version
-        baseline.Should().NotEqual(AeadContext.ForKey(KeyScope.Global, "v1", "Ssn"));    // field
-        baseline.Should().Equal(AeadContext.ForKey(KeyScope.Global, "v1", "Email"));     // same
+        baseline.Should().NotEqual(AeadContext.ForKey(KeyScope.Global, "v1", "Ssn")); // field
+        baseline.Should().Equal(AeadContext.ForKey(KeyScope.Global, "v1", "Email")); // same
     }
 
     [Test]

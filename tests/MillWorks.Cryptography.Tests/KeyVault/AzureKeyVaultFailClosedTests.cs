@@ -25,7 +25,8 @@ public sealed class AzureKeyVaultFailClosedTests
     public async Task Encryption_rejects_a_wrong_length_secret()
     {
         var client = new FixedSecretClient(Convert.ToBase64String(new byte[16])); // 16 bytes, not 32
-        using var provider = new AzureKeyVaultEncryptionKeyProvider(client, new SecureRandom(), TimeProvider.System, CacheTtl);
+        using var provider =
+            new AzureKeyVaultEncryptionKeyProvider(client, new SecureRandom(), TimeProvider.System, CacheTtl);
 
         var act = async () => await provider.GetEncryptionKeyAsync("Email", Version, KeyScope.Global);
 
@@ -36,7 +37,8 @@ public sealed class AzureKeyVaultFailClosedTests
     public async Task Encryption_accepts_a_valid_32_byte_secret()
     {
         var client = new FixedSecretClient(Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)));
-        using var provider = new AzureKeyVaultEncryptionKeyProvider(client, new SecureRandom(), TimeProvider.System, CacheTtl);
+        using var provider =
+            new AzureKeyVaultEncryptionKeyProvider(client, new SecureRandom(), TimeProvider.System, CacheTtl);
 
         using var key = await provider.GetEncryptionKeyAsync("Email", Version, KeyScope.Global);
 
@@ -47,7 +49,8 @@ public sealed class AzureKeyVaultFailClosedTests
     public async Task Signing_rejects_a_wrong_length_hmac_secret()
     {
         var client = new FixedSecretClient(Convert.ToBase64String(new byte[48])); // 48 bytes, not 32
-        using var provider = new AzureKeyVaultSigningKeyProvider(client, new SecureRandom(), TimeProvider.System, CacheTtl);
+        using var provider =
+            new AzureKeyVaultSigningKeyProvider(client, new SecureRandom(), TimeProvider.System, CacheTtl);
 
         var act = async () => await provider.GetByIdAsync(Version, KeyScope.Global);
 
@@ -81,9 +84,14 @@ public sealed class AzureKeyVaultFailClosedTests
         public override string ReasonPhrase => "OK";
         public override System.IO.Stream? ContentStream { get; set; }
         public override string ClientRequestId { get; set; } = string.Empty;
-        public override void Dispose() { }
+
+        public override void Dispose()
+        {
+        }
+
         protected override bool ContainsHeader(string name) => false;
         protected override IEnumerable<HttpHeader> EnumerateHeaders() => Array.Empty<HttpHeader>();
+
         protected override bool TryGetHeader(string name, [NotNullWhen(true)] out string? value)
         {
             value = null;

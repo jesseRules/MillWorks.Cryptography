@@ -71,7 +71,7 @@ public sealed class CryptoEncodingTests
     [Test]
     public void FromHex_null_throws()
     {
-        var act = () => CryptoEncoding.FromHex(null!);
+        var act = static () => CryptoEncoding.FromHex(null!);
 
         act.Should().Throw<ArgumentNullException>();
     }

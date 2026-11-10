@@ -37,7 +37,7 @@ public sealed class FileKeyProviderZeroingTests : FileSystemTestBase
 
         provider.Dispose();
 
-        stored.Should().OnlyContain(b => b == 0);
+        stored.Should().OnlyContain(static b => b == 0);
     }
 
     private static byte[] StoredMasterKey(FileEncryptionKeyProvider provider)

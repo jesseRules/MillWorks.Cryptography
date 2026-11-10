@@ -38,7 +38,8 @@ public sealed class HmacSha256Signer : ISigner, IVerifier
 
     /// <inheritdoc />
     public async Task<bool> VerifyAsync(
-        ReadOnlyMemory<byte> data, SignatureEnvelope signature, KeyScope scope, CancellationToken cancellationToken = default)
+        ReadOnlyMemory<byte> data, SignatureEnvelope signature, KeyScope scope,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(signature);
         if (signature.Alg != SignatureAlgorithm.HmacSha256)
@@ -46,7 +47,8 @@ public sealed class HmacSha256Signer : ISigner, IVerifier
             return false;
         }
 
-        using var key = await _keyProvider.GetByIdAsync(signature.KeyId, scope, cancellationToken).ConfigureAwait(false);
+        using var key = await _keyProvider.GetByIdAsync(signature.KeyId, scope, cancellationToken)
+            .ConfigureAwait(false);
         if (key is null)
         {
             return false;

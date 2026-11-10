@@ -22,7 +22,7 @@ public sealed class KeyMaterialTests
 
         key.Dispose();
 
-        bytes.Should().OnlyContain(b => b == 0);
+        bytes.Should().OnlyContain(static b => b == 0);
     }
 
     [Test]
@@ -42,7 +42,7 @@ public sealed class KeyMaterialTests
         var key = new KeyMaterial([1, 2, 3]);
         key.Dispose();
 
-        var act = () => key.Dispose();
+        var act = key.Dispose;
 
         act.Should().NotThrow();
     }
@@ -61,7 +61,7 @@ public sealed class KeyMaterialTests
     [Test]
     public void Null_material_throws()
     {
-        var act = () => new KeyMaterial(null!);
+        var act = static () => new KeyMaterial(null!);
 
         act.Should().Throw<ArgumentNullException>();
     }

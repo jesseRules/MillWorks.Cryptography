@@ -72,9 +72,14 @@ public sealed class AzureKeyVaultCancellationTests
         public override string ReasonPhrase => "OK";
         public override Stream? ContentStream { get; set; }
         public override string ClientRequestId { get; set; } = string.Empty;
-        public override void Dispose() { }
+
+        public override void Dispose()
+        {
+        }
+
         protected override bool ContainsHeader(string name) => false;
         protected override IEnumerable<HttpHeader> EnumerateHeaders() => [];
+
         protected override bool TryGetHeader(string name, [NotNullWhen(true)] out string? value)
         {
             value = null;

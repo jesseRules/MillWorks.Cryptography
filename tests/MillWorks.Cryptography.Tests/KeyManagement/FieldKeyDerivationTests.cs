@@ -69,7 +69,7 @@ public sealed class FieldKeyDerivationTests
     [Test]
     public void Empty_field_name_throws()
     {
-        var act = () => FieldKeyDerivation.DeriveFieldKey(Master, "");
+        var act = static () => FieldKeyDerivation.DeriveFieldKey(Master, "");
 
         act.Should().Throw<ArgumentException>();
     }

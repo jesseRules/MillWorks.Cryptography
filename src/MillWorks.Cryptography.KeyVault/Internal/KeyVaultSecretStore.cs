@@ -65,7 +65,8 @@ internal sealed class KeyVaultSecretStore : IDisposable
         }
 
         return await DedupAsync(
-                _currentInflight, scope, () => LoadCurrentVersionAsync(scope, CancellationToken.None), cancellationToken)
+                _currentInflight, scope, () => LoadCurrentVersionAsync(scope, CancellationToken.None),
+                cancellationToken)
             .ConfigureAwait(false);
     }
 
@@ -117,7 +118,8 @@ internal sealed class KeyVaultSecretStore : IDisposable
         var versions = new List<string>();
         try
         {
-            await foreach (var properties in _client.GetPropertiesOfSecretsAsync(cancellationToken).ConfigureAwait(false))
+            await foreach (var properties in _client.GetPropertiesOfSecretsAsync(cancellationToken)
+                               .ConfigureAwait(false))
             {
                 var version = KeyVaultSecretNaming.TryExtractVersion(_usage, scope, properties.Name);
                 if (version is not null)
@@ -187,7 +189,8 @@ internal sealed class KeyVaultSecretStore : IDisposable
     {
         try
         {
-            var response = await _client.GetSecretAsync(name, cancellationToken: cancellationToken).ConfigureAwait(false);
+            var response = await _client.GetSecretAsync(name, cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
             return response.Value.Value;
         }
         catch (RequestFailedException ex) when (ex.Status == 404)

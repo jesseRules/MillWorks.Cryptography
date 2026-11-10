@@ -41,14 +41,16 @@ public sealed class AzureKeyVaultSigningKeyProvider : ISigningKeyProvider, IDisp
     }
 
     /// <inheritdoc />
-    public async Task<KeyMaterial?> GetByIdAsync(string keyId, KeyScope scope, CancellationToken cancellationToken = default)
+    public async Task<KeyMaterial?> GetByIdAsync(string keyId, KeyScope scope,
+        CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrEmpty(keyId);
         return await _store.ReadVersionKeyOrNullAsync(keyId, scope, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<KeyDescriptor>> ListActiveAsync(KeyScope scope, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<KeyDescriptor>> ListActiveAsync(KeyScope scope,
+        CancellationToken cancellationToken = default)
     {
         var current = await _store.TryGetCurrentVersionAsync(scope, cancellationToken).ConfigureAwait(false);
         var versions = await _store.ListVersionsAsync(scope, cancellationToken).ConfigureAwait(false);

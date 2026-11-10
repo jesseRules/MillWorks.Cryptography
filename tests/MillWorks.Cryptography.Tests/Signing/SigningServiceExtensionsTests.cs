@@ -14,7 +14,7 @@ public sealed class SigningServiceExtensionsTests
         var root = Path.Combine(Path.GetTempPath(), "mwcrypto-sign-di-" + Guid.NewGuid().ToString("N"));
         try
         {
-            using var serviceProvider = new ServiceCollection()
+            await using var serviceProvider = new ServiceCollection()
                 .AddMillWorksCryptography()
                 .AddMillWorksCryptographyFileSystem(options =>
                 {
@@ -55,7 +55,7 @@ public sealed class SigningServiceExtensionsTests
         var root = Path.Combine(Path.GetTempPath(), "mwcrypto-sign-di-ec-" + Guid.NewGuid().ToString("N"));
         try
         {
-            using var serviceProvider = new ServiceCollection()
+            await using var serviceProvider = new ServiceCollection()
                 .AddMillWorksCryptography()
                 .AddMillWorksCryptographyFileSystem(options =>
                 {

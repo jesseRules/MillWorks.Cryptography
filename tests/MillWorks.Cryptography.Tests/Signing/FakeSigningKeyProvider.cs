@@ -19,13 +19,16 @@ internal sealed class FakeSigningKeyProvider(string algorithm = "HMAC-SHA256") :
         KeyScope scope, CancellationToken cancellationToken = default) =>
         Task.FromResult((Describe(_current, KeyStatus.Active), KeyMaterial.CopyOf(_keys[_current])));
 
-    public Task<KeyMaterial?> GetByIdAsync(string keyId, KeyScope scope, CancellationToken cancellationToken = default) =>
+    public Task<KeyMaterial?>
+        GetByIdAsync(string keyId, KeyScope scope, CancellationToken cancellationToken = default) =>
         Task.FromResult(_keys.TryGetValue(keyId, out var key) ? KeyMaterial.CopyOf(key) : null);
 
-    public Task<IReadOnlyList<KeyDescriptor>> ListActiveAsync(KeyScope scope, CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<KeyDescriptor>> ListActiveAsync(KeyScope scope,
+        CancellationToken cancellationToken = default)
     {
         IReadOnlyList<KeyDescriptor> descriptors = _keys.Keys
-            .Select(id => Describe(id, string.Equals(id, _current, StringComparison.Ordinal) ? KeyStatus.Active : KeyStatus.Retired))
+            .Select(id => Describe(id,
+                string.Equals(id, _current, StringComparison.Ordinal) ? KeyStatus.Active : KeyStatus.Retired))
             .ToList();
         return Task.FromResult(descriptors);
     }

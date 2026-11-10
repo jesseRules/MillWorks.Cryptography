@@ -85,7 +85,8 @@ internal sealed class FileKeyStore : IDisposable
         await rotationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            await using var fileLock = await AcquireRotationFileLockAsync(scope, cancellationToken).ConfigureAwait(false);
+            await using var fileLock =
+                await AcquireRotationFileLockAsync(scope, cancellationToken).ConfigureAwait(false);
 
             // Another caller may have initialized this scope while we waited.
             if (TryGetCurrentVersion(scope, out version))
@@ -167,7 +168,8 @@ internal sealed class FileKeyStore : IDisposable
         await rotationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            await using var fileLock = await AcquireRotationFileLockAsync(scope, cancellationToken).ConfigureAwait(false);
+            await using var fileLock =
+                await AcquireRotationFileLockAsync(scope, cancellationToken).ConfigureAwait(false);
             return await RotateCoreAsync(scope, cancellationToken).ConfigureAwait(false);
         }
         finally
@@ -234,8 +236,8 @@ internal sealed class FileKeyStore : IDisposable
         try
         {
             await using (var stream = new FileStream(
-                temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096,
-                FileOptions.Asynchronous | FileOptions.WriteThrough))
+                             temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096,
+                             FileOptions.Asynchronous | FileOptions.WriteThrough))
             {
                 await stream.WriteAsync(contents, cancellationToken).ConfigureAwait(false);
                 await stream.FlushAsync(cancellationToken).ConfigureAwait(false);

@@ -60,7 +60,7 @@ public sealed class CryptographyServiceExtensionsTests
     [Test]
     public void AddMillWorksCryptography_null_services_throws()
     {
-        var act = () => ((IServiceCollection)null!).AddMillWorksCryptography();
+        var act = static () => ((IServiceCollection)null!).AddMillWorksCryptography();
 
         act.Should().Throw<ArgumentNullException>();
     }
